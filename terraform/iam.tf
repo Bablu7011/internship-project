@@ -1,16 +1,9 @@
-# Read and render the policy from our external JSON file
-data "aws_iam_policy_document" "s3_access" {
-  template = file("${path.module}/../policy/ec2_s3_policy.json")
-
-  vars = {
-    jar_bucket_name = aws_s3_bucket.jar_bucket.id
-  }
-}
-
-# Create the IAM policy resource using the document above
+# Create the IAM policy by rendering our external JSON file with variables
 resource "aws_iam_policy" "s3_access_policy" {
   name   = "${var.stage}-s3-access-policy"
-  policy = data.aws_iam_policy_document.s3_access.json
+  policy = templatefile("${path.module}/../policy/ec2_s3_policy.json", {
+    jar_bucket_name = aws_s3_bucket.jar_bucket.id
+  })
 }
 
 # This is the IAM Role that our EC2 instance will use

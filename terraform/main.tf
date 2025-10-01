@@ -82,3 +82,18 @@ resource "aws_lb_target_group_attachment" "tga" {
   target_id        = aws_instance.devops_ec2[count.index].id
   port             = 80
 }
+
+# Add this new subnet resource to your main.tf file
+
+resource "aws_subnet" "devops_subnet_2" {
+  vpc_id                  = aws_vpc.devops_vpc.id
+  cidr_block              = "10.0.2.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "${var.region}b" # Note we use 'b' here for the second AZ
+  tags = { Name = "${var.stage}-subnet-2" }
+}
+
+resource "aws_route_table_association" "devops_rta_2" {
+  subnet_id      = aws_subnet.devops_subnet_2.id
+  route_table_id = aws_route_table.devops_rt.id
+}

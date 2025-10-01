@@ -4,7 +4,7 @@ resource "aws_lb" "main_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.devops_sg.id]
-  subnets            = [aws_subnet.devops_subnet.id] # For a real setup, you'd use multiple subnets
+  subnets            = [aws_subnet.devops_subnet.id, aws_subnet.devops_subnet_2.id]
 
   # Enable access logging and point it to our ELB logs bucket
   access_logs {
@@ -48,8 +48,3 @@ resource "aws_lb_listener" "http_listener" {
   }
 }
 
-# Output the DNS name of the Load Balancer so we can access it
-output "load_balancer_dns_name" {
-  description = "The DNS name of the Application Load Balancer"
-  value       = aws_lb.main_alb.dns_name
-}

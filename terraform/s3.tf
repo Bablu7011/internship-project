@@ -27,12 +27,6 @@ resource "random_pet" "suffix" {
   length = 2
 }
 
-# Output the names of the buckets
-output "jar_bucket_name" {
-  value = aws_s3_bucket.jar_bucket.bucket
-}
-
-
 # Add a 7-day lifecycle rule to the EC2 logs bucket
 resource "aws_s3_bucket_lifecycle_configuration" "ec2_logs_bucket_lifecycle" {
   bucket = aws_s3_bucket.ec2_logs_bucket.id
@@ -63,4 +57,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "elb_logs_bucket_lifecycle" {
 
     filter {} # Apply this rule to all objects in the bucket
   }
+}
+
+# This data source automatically finds the AWS Account ID for the ELB service in our region
+data "aws_elb_service_account" "main" {}
+
+# Attach the policy to the S3 bucket by rendering the external JSON file
+resource "aws_s3_bucket_policy" "elb_logs_bucket_policy" {
+  bucket = aws_s3_bucket.elb_logs_bucket.id
+  policy = templatefile("${path.module}/../policy/s3_elb_logging_policy.json", {
+    elb_service_account_arn = data.aws_elb_service_account.main.arn
+    bucket_arn              = aws_s3_bucket.elb_logs_bucket.arn
+  })
 }
