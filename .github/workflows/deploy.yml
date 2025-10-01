@@ -22,9 +22,10 @@ jobs:
 
     # Step 3: Build the application with Maven
     - name: Build with Maven
-      # Assuming your pom.xml is in the root of the repo
-      # If it's in a subfolder, change the working-directory
-      run: mvn -B package --file pom.xml
+      # This tells the step to run inside the java-app folder
+      working-directory: ./java-app
+      # This command will now find the pom.xml file
+      run: mvn -B package
 
     # Step 4: Configure AWS credentials
     - name: Configure AWS Credentials
@@ -36,6 +37,8 @@ jobs:
 
     # Step 5: Upload JAR to S3
     - name: Upload JAR to S3 Bucket
+      # This step also needs to know where to find the 'target' folder
+      working-directory: ./java-app
       run: |
         # Find the JAR file in the target directory
         JAR_FILE=$(find target -name "*.jar" | head -n 1)
