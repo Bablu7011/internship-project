@@ -1,6 +1,7 @@
 # Bucket to store the application JAR file
 resource "aws_s3_bucket" "jar_bucket" {
   bucket = "jar-bucket-${random_pet.suffix.id}"
+   force_destroy = true
   tags = {
     Name = "${var.stage}-jar-bucket"
   }
@@ -9,6 +10,7 @@ resource "aws_s3_bucket" "jar_bucket" {
 # Bucket to store logs from the EC2 instances
 resource "aws_s3_bucket" "ec2_logs_bucket" {
   bucket = "ec2-logs-bucket-${random_pet.suffix.id}"
+   force_destroy = true
   tags = {
     Name = "${var.stage}-ec2-logs-bucket"
   }
