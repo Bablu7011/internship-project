@@ -105,7 +105,8 @@ resource "aws_instance" "devops_ec2" {
   iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
   user_data = templatefile("${path.module}/../scripts/user_data.sh.tpl", {
-    jar_bucket_name = aws_s3_bucket.jar_bucket.id
+    JAR_BUCKET           = aws_s3_bucket.jar_bucket.id
+    EC2_LOGS_BUCKET      = aws_s3_bucket.ec2_logs_bucket.id  
   })
 
   tags = {

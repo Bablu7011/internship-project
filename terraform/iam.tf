@@ -3,6 +3,7 @@ resource "aws_iam_policy" "s3_access_policy" {
   name   = "${var.stage}-s3-access-policy"
   policy = templatefile("${path.module}/../policy/ec2_s3_policy.json", {
     jar_bucket_name = aws_s3_bucket.jar_bucket.id
+  ec2_logs_bucket_name = aws_s3_bucket.ec2_logs_bucket.id 
   })
 }
 
