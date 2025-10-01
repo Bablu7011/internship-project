@@ -19,6 +19,7 @@ resource "aws_s3_bucket" "ec2_logs_bucket" {
 # Bucket to store logs from the Application Load Balancer
 resource "aws_s3_bucket" "elb_logs_bucket" {
   bucket = "elb-logs-bucket-${random_pet.suffix.id}"
+  force_destroy = true
   tags = {
     Name = "${var.stage}-elb-logs-bucket"
   }

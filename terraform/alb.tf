@@ -29,10 +29,11 @@ resource "aws_lb_target_group" "main_tg" {
     path                = "/"
     protocol            = "HTTP"
     matcher             = "200"
-    interval            = 30
-    timeout             = 5
+    # UPDATED: Give the instance more time to start
+    interval            = 60
+    timeout             = 30
     healthy_threshold   = 2
-    unhealthy_threshold = 2
+    unhealthy_threshold = 5 # Allow 5 failures before marking as unhealthy
   }
 }
 
@@ -47,4 +48,3 @@ resource "aws_lb_listener" "http_listener" {
     target_group_arn = aws_lb_target_group.main_tg.arn
   }
 }
-
