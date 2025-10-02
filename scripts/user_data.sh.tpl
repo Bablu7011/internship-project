@@ -12,7 +12,7 @@ echo "Starting user_data script..."
 echo "Running apt-get update..."
 apt-get update -y
 echo "Running apt-get install..."
-apt-get install -y openjdk-21-jdk awscli ncat
+apt-get install -y openjdk-21-jdk awscli python3
 echo "Finished apt-get install."
 
 # --------------------------
@@ -31,7 +31,7 @@ cat << 'EOF' > /app/poll_s3.sh
 #!/bin/bash
 set -e
 
-# Variables passed from Terraform (must be UPPERCASE)
+# Variables passed from Terraform
 JAR_BUCKET="${JAR_BUCKET}"
 EC2_LOGS_BUCKET="${EC2_LOGS_BUCKET}"
 APP_DIR="/app"
@@ -44,7 +44,6 @@ echo "Polling service started for bucket: s3://$${JAR_BUCKET}"
 
 while true; do
   # --- APP DEPLOYMENT LOGIC ---
-  # Using $$ to escape shell variables for Terraform's templatefile function
   aws s3 sync s3://$${JAR_BUCKET} $${APP_DIR} --delete
   JAR_FILE=$(find $${APP_DIR} -maxdepth 1 -name "*.jar" | head -n 1)
 
@@ -52,12 +51,12 @@ while true; do
     NEW_JAR_MD5=$(md5sum "$${JAR_FILE}" | awk '{ print $1 }')
 
     if [ "$${NEW_JAR_MD5}" != "$${CURRENT_JAR_MD5}" ]; then
-      echo "New JAR file detected ($(basename $${JAR_FILE})). Restarting application..."
+      echo "New JAR file detected. Restarting application..."
       CURRENT_JAR_MD5=$${NEW_JAR_MD5}
 
-      if pgrep -f "java -jar" || pgrep -f "nc -l -p 80"; then
+      if pgrep -f "java -jar" || pgrep -f "python3 -m http.server 80"; then
         pkill -f "java -jar" || true
-        pkill -f "nc -l -p 80" || true
+        pkill -f "python3 -m http.server 80" || true
         echo "Killed old process on port 80."
         sleep 5
       fi
@@ -75,7 +74,8 @@ while true; do
     aws s3 cp /app/polling_service.log s3://$${EC2_LOGS_BUCKET}/$${INSTANCE_ID}/polling_service.log
   fi
   
-  sleep 60
+  # UPDATED: Poll every 5 minutes (300 seconds)
+  sleep 300
 done
 EOF
 echo "Finished creating /app/poll_s3.sh."
@@ -83,9 +83,9 @@ echo "Finished creating /app/poll_s3.sh."
 # --------------------------
 # Start Placeholder Web Server
 # --------------------------
-echo "Starting placeholder web server..."
-while true; do { echo -e 'HTTP/1.1 200 OK\r\n'; echo '<h1>Placeholder OK</h1>'; } | nc -l -p 80; done &
-echo "Placeholder web server is running in the background."
+echo "Starting placeholder web server with Python..."
+nohup python3 -m http.server 80 > /app/placeholder.log 2>&1 &
+echo "Placeholder Python web server is running in the background."
 
 # --------------------------
 # Run the polling script

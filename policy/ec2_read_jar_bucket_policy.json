@@ -10,11 +10,6 @@
       "Effect": "Allow",
       "Action": "s3:GetObject",
       "Resource": "arn:aws:s3:::${jar_bucket_name}/*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::${ec2_logs_bucket_name}/*"
     }
   ]
 }
