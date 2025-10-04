@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadJarBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${jar_bucket_name}",
+        "arn:aws:s3:::${jar_bucket_name}/*"
+      ]
+    },
+    {
+      "Sid": "ReadEC2LogsBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${ec2_logs_bucket_name}",
+        "arn:aws:s3:::${ec2_logs_bucket_name}/*"
+      ]
+    },
+    {
+      "Sid": "ReadELBLogsBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${elb_logs_bucket_name}",
+        "arn:aws:s3:::${elb_logs_bucket_name}/*"
+      ]
+    }
+  ]
+}

@@ -48,3 +48,41 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   name = "${var.stage}-ec2-profile"
   role = aws_iam_role.ec2_s3_access_role.name
 }
+
+# --- Data Source to get current AWS Account ID ---
+data "aws_caller_identity" "current" {}
+
+# --- Policy for the Auditor to read all S3 Buckets ---
+resource "aws_iam_policy" "auditor_read_buckets_policy" {
+  name   = "${var.stage}-auditor-read-buckets-policy"
+  policy = templatefile("${path.module}/../policy/auditor_read_buckets_policy.json", {
+    jar_bucket_name      = var.jar_bucket_name
+    ec2_logs_bucket_name = var.ec2_logs_bucket_name
+    elb_logs_bucket_name = var.elb_logs_bucket_name
+  })
+}
+
+# --- IAM Role for the Auditor (for a human user to assume) ---
+resource "aws_iam_role" "s3_auditor_role" {
+  name = "${var.stage}-s3-auditor-role"
+
+  # This policy trusts your AWS account, allowing you to assume the role
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [
+      {
+        Action    = "sts:AssumeRole"
+        Effect    = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+      }
+    ]
+  })
+}
+
+# --- Attach the Auditor Policy to the Auditor Role ---
+resource "aws_iam_role_policy_attachment" "attach_auditor_policy" {
+  role       = aws_iam_role.s3_auditor_role.name
+  policy_arn = aws_iam_policy.auditor_read_buckets_policy.arn
+}
