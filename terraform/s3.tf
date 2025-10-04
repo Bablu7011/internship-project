@@ -1,6 +1,8 @@
 # Bucket to store the application JAR file
 resource "aws_s3_bucket" "jar_bucket" {
   bucket = var.jar_bucket_name
+  # for demo to do cleanup without error
+  force_destroy = true
   tags = {
     Name = "${var.stage}-jar-bucket"
   }
@@ -9,6 +11,8 @@ resource "aws_s3_bucket" "jar_bucket" {
 # Bucket to store logs from the EC2 instances
 resource "aws_s3_bucket" "ec2_logs_bucket" {
   bucket = var.ec2_logs_bucket_name
+  # for demo to do cleanup without error
+  force_destroy = true
   tags = {
     Name = "${var.stage}-ec2-logs-bucket"
   }
@@ -17,6 +21,8 @@ resource "aws_s3_bucket" "ec2_logs_bucket" {
 # Bucket to store logs from the Application Load Balancer
 resource "aws_s3_bucket" "elb_logs_bucket" {
   bucket = var.elb_logs_bucket_name
+  # for demo to do cleanup without error
+  force_destroy = true
   tags = {
     Name = "${var.stage}-elb-logs-bucket"
   }
