@@ -74,6 +74,7 @@ while true; do
     aws s3 cp /app/polling_service.log s3://$${EC2_LOGS_BUCKET}/$${INSTANCE_ID}/polling_service.log
   fi
   
+  # UPDATED: Poll every 5 minutes (300 seconds)
   sleep 300
 done
 EOF
@@ -82,10 +83,6 @@ echo "Finished creating /app/poll_s3.sh."
 # --------------------------
 # Start Placeholder Web Server
 # --------------------------
-echo "Creating a placeholder index.html for health checks..."
-# ADD THIS LINE to create the file the health check looks for
-echo "<h1>Health Check OK</h1>" > /app/index.html
-
 echo "Starting placeholder web server with Python..."
 nohup python3 -m http.server 80 > /app/placeholder.log 2>&1 &
 echo "Placeholder Python web server is running in the background."
