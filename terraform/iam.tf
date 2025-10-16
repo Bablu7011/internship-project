@@ -86,3 +86,4 @@ resource "aws_iam_role_policy_attachment" "attach_auditor_policy" {
   role       = aws_iam_role.s3_auditor_role.name
   policy_arn = aws_iam_policy.auditor_read_buckets_policy.arn
 }
+

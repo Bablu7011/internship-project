@@ -10,11 +10,6 @@ variable "stage" {
   default     = "Dev"
 }
 
-variable "instance_count" {
-  description = "Number of base EC2 instances to create (e.g., entering 1 creates 2)"
-  type        = number
-  default     = 1
-}
 
 variable "instance_type" {
   description = "EC2 instance type"

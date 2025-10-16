@@ -117,6 +117,88 @@ The final step of the assignment was to ensure the security policies were workin
 This was tested using the "Switch Role" functionality within the AWS Management Console. By providing the AWS Account ID and the specific name of the auditor IAM role (e.g., Dev-s3-auditor-role), I temporarily adopted its limited permissions to interact with the S3 service.
 
 
+
+📘 Assignment 3: CI/CD with GitHub Actions, ELB, and a Pull-Based Deployment Model
+
+This assignment evolves the project into a complete CI/CD pipeline, building a highly available and self-updating system.
+The core responsibility shifts from the server building the code (push model) to a CI/CD pipeline building the code and the servers automatically pulling the latest version (pull model).
+
+🏗️ New Architecture
+
+The infrastructure was significantly upgraded for resilience and scalability:
+
+🌐 Application Load Balancer (ELB):
+Distributes incoming traffic across multiple EC2 instances in a Round Robin fashion, ensuring high availability.
+
+🖥️ Multiple EC2 Instances:
+The system now supports a configurable number of EC2 instances (1 + n), automatically registered with the Load Balancer’s target group.
+
+📂 Three Distinct S3 Buckets:
+
+JAR Bucket: Stores the compiled Java application (.jar file). EC2 instances watch this bucket for updates.
+
+EC2 Logs Bucket: Collects logs from each individual EC2 instance in folders named by instance ID.
+
+ELB Logs Bucket: Stores Application Load Balancer access logs for traffic analysis.
+
+🔄 Self-Updating Deployment Strategy (Pull Model)
+
+A robust pull-based mechanism was implemented:
+
+📡 S3 Polling:
+Each EC2 instance runs a background script that polls the JAR S3 bucket every 5 minutes.
+
+⚡ Automatic Updates:
+When a new/updated .jar file is detected:
+
+The old application process is terminated.
+
+The new version is automatically started.
+
+👉 This makes the entire server fleet self-updating without any direct SSH commands from the CI/CD pipeline.
+
+⚙️ CI/CD Workflow with GitHub Actions
+
+The CI/CD pipeline is now focused and streamlined:
+
+🖱️ Manual Trigger:
+GitHub Action is configured with a workflow_dispatch trigger → developers can start a deployment manually from the GitHub UI.
+
+🏗️ Build and Upload:
+
+Builds Java source code into a .jar file using Maven.
+
+Uploads the final .jar artifact to the JAR S3 bucket.
+
+This upload is the event that triggers self-updating on EC2 instances.
+
+🔐 Security and Logging Enhancements
+
+📁 Segregated Policies:
+All IAM & S3 policies are now managed in a dedicated /policy directory for better organization.
+
+🔒 Principle of Least Privilege:
+
+EC2 instances have specific IAM roles with two policies:
+
+Read-only for JAR bucket.
+
+Write-only for EC2 logs bucket.
+
+🛡️ Service-Level Permissions:
+ELB logs bucket has a dedicated S3 Bucket Policy, allowing ELB service to write its access logs.
+
+👤 Auditor Role:
+An "Auditor" IAM role was created (from Assignment 2).
+
+Lets a human securely assume the role in AWS Console.
+
+Grants read-only access to all three S3 buckets for verification.
+
+
+
+
+
 ✅ How to Verify
 Since the bucket is private, you won’t see logs by default. Instead, follow these steps:
 
