@@ -9,7 +9,7 @@ public class HelloController {
 
     @GetMapping("/hello")
     public String hello(Model model) {
-        model.addAttribute("message", "Hello from Spring MVC!.");
+        model.addAttribute("message", "Hello from Spring MVC!.dassfghfdsa");
         return "hello";
     }
 }
