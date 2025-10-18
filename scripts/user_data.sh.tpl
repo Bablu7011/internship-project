@@ -86,7 +86,6 @@ echo "Creating a placeholder index.html for health checks..."
 echo "<h1>Health Check OK</h1>" > /app/index.html
 
 echo "Starting placeholder web server with Python..."
-# THIS IS THE FIX: Added "--bind 0.0.0.0" to make the server publicly accessible
 nohup python3 -m http.server 80 --bind 0.0.0.0 > /app/placeholder.log 2>&1 &
 echo "Placeholder Python web server is running in the background."
 
@@ -100,3 +99,4 @@ nohup /app/poll_s3.sh > /app/polling_service.log 2>&1 &
 echo "Polling script is running in the background."
 
 echo "User_data script finished."
+
