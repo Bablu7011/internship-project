@@ -13,6 +13,17 @@ resource "aws_launch_template" "main_lt" {
     name = aws_iam_instance_profile.ec2_profile.name
   }
 
+  # THIS IS THE FIX: Enable unlimited mode for T-series instances.
+  # This allows the CPU to sustain high performance for our test.
+  credit_specification {
+    cpu_credits = "unlimited"
+  }
+
+  # Enable detailed monitoring for faster CloudWatch metrics (1-minute intervals)
+  monitoring {
+    enabled = true
+  }
+
   user_data = base64encode(templatefile("${path.module}/../scripts/user_data.sh.tpl", {
     JAR_BUCKET           = var.jar_bucket_name
     EC2_LOGS_BUCKET      = var.ec2_logs_bucket_name
@@ -39,19 +50,11 @@ resource "aws_autoscaling_group" "main_asg" {
   }
 
   target_group_arns = [aws_lb_target_group.main_tg.arn]
-
-  health_check_grace_period = 300
-  health_check_type         = "ELB"
-
-  tag {
-    key                 = "Name"
-    value               = "${var.stage}-asg-instance"
-    propagate_at_launch = true
-  }
+  health_check_type = "ELB"
 }
 
 # --------------------------
-# Scaling Policies & Alarms
+# Scaling Policies & Alarms (Fast for Demo)
 # --------------------------
 # --- Scale-Up Policy ---
 resource "aws_autoscaling_policy" "scale_up" {
@@ -59,25 +62,22 @@ resource "aws_autoscaling_policy" "scale_up" {
   autoscaling_group_name = aws_autoscaling_group.main_asg.name
   adjustment_type        = "ChangeInCapacity"
   scaling_adjustment     = 1
-  cooldown               = 120 # Cooldown for 2 minutes
+  cooldown               = 60
 }
 
-# --- CloudWatch Alarm to Scale Up (Faster for Demo) ---
 resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
   alarm_name          = "${var.stage}-cpu-high-alarm"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1 # Trigger after 1 period
+  evaluation_periods  = "1"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = 60 # Check every 60 seconds
+  period              = "60"
   statistic           = "Average"
-  threshold           = 70
-
+  threshold           = "30"
+  alarm_actions       = [aws_autoscaling_policy.scale_up.arn]
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.main_asg.name
   }
-
-  alarm_actions = [aws_autoscaling_policy.scale_up.arn]
 }
 
 # --- Scale-Down Policy ---
@@ -86,38 +86,32 @@ resource "aws_autoscaling_policy" "scale_down" {
   autoscaling_group_name = aws_autoscaling_group.main_asg.name
   adjustment_type        = "ChangeInCapacity"
   scaling_adjustment     = -1
-  cooldown               = 300 # Cooldown for 5 minutes
+  cooldown               = 120
 }
 
-# --- CloudWatch Alarm to Scale Down (Faster for Demo) ---
 resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   alarm_name          = "${var.stage}-cpu-low-alarm"
   comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 2 # Trigger after 2 periods
+  evaluation_periods  = "2"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = 60 # Check every 60 seconds
+  period              = "60"
   statistic           = "Average"
-  threshold           = 30
-
+  # THIS IS THE CHANGE: The threshold is now 20%
+  threshold           = "20"
+  alarm_actions       = [aws_autoscaling_policy.scale_down.arn]
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.main_asg.name
   }
-
-  alarm_actions = [aws_autoscaling_policy.scale_down.arn]
 }
 
 # --------------------------
-# SNS Notification Setup
+# SNS Notifications
 # --------------------------
-# --- SNS Topic for ASG Notifications ---
 resource "aws_sns_topic" "asg_notifications" {
-  name = "${var.stage}-asg-notifications"
+  name = "${var.stage}-asg-scaling-events"
 }
 
-# --- SNS Topic Policy ---
-# This attaches our external policy file to the SNS topic, allowing the
-# Auto Scaling service to publish messages to it.
 resource "aws_sns_topic_policy" "asg_notifications_policy" {
   arn    = aws_sns_topic.asg_notifications.arn
   policy = templatefile("${path.module}/../policy/sns_asg_notification_policy.json", {
@@ -125,7 +119,6 @@ resource "aws_sns_topic_policy" "asg_notifications_policy" {
   })
 }
 
-# --- ASG Notification Configuration ---
 resource "aws_autoscaling_notification" "main_asg_notifications" {
   group_names = [aws_autoscaling_group.main_asg.name]
   
