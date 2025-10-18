@@ -2,7 +2,6 @@
 # Launch Template
 # --------------------------
 # This is the blueprint for every EC2 instance launched by the Auto Scaling Group.
-# It defines the AMI, instance type, key pair, security groups, IAM role, and startup script.
 resource "aws_launch_template" "main_lt" {
   name                   = "${var.stage}-main-launch-template"
   image_id               = "ami-0f5ee92e2d63afc18" # Ubuntu 22.04 LTS for ap-south-1
@@ -10,12 +9,10 @@ resource "aws_launch_template" "main_lt" {
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.devops_sg.id]
 
-  # Attach the IAM role so instances can access S3
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2_profile.name
   }
 
-  # Provide the startup script
   user_data = base64encode(templatefile("${path.module}/../scripts/user_data.sh.tpl", {
     JAR_BUCKET           = var.jar_bucket_name
     EC2_LOGS_BUCKET      = var.ec2_logs_bucket_name
@@ -29,7 +26,6 @@ resource "aws_launch_template" "main_lt" {
 # --------------------------
 # Auto Scaling Group (ASG)
 # --------------------------
-# This resource manages the lifecycle of our EC2 instances.
 resource "aws_autoscaling_group" "main_asg" {
   name                = "${var.stage}-main-asg"
   desired_capacity    = 2
@@ -37,21 +33,16 @@ resource "aws_autoscaling_group" "main_asg" {
   max_size            = 4
   vpc_zone_identifier = [aws_subnet.devops_subnet.id, aws_subnet.devops_subnet_2.id]
 
-  # Connect the ASG to the Launch Template
   launch_template {
     id      = aws_launch_template.main_lt.id
     version = "$Latest"
   }
 
-  # Connect the ASG to the Load Balancer's Target Group
   target_group_arns = [aws_lb_target_group.main_tg.arn]
 
-  # This ensures that if an instance is terminated, the ASG waits for the
-  # connection to drain from the load balancer before shutting it down.
   health_check_grace_period = 300
   health_check_type         = "ELB"
 
-  # A tag to identify instances launched by this ASG
   tag {
     key                 = "Name"
     value               = "${var.stage}-asg-instance"
@@ -68,16 +59,17 @@ resource "aws_autoscaling_policy" "scale_up" {
   autoscaling_group_name = aws_autoscaling_group.main_asg.name
   adjustment_type        = "ChangeInCapacity"
   scaling_adjustment     = 1
-  cooldown               = 300
+  cooldown               = 120 # Cooldown for 2 minutes
 }
 
+# --- CloudWatch Alarm to Scale Up (Faster for Demo) ---
 resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
   alarm_name          = "${var.stage}-cpu-high-alarm"
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = 2
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1 # Trigger after 1 period
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = 300
+  period              = 60 # Check every 60 seconds
   statistic           = "Average"
   threshold           = 70
 
@@ -94,16 +86,17 @@ resource "aws_autoscaling_policy" "scale_down" {
   autoscaling_group_name = aws_autoscaling_group.main_asg.name
   adjustment_type        = "ChangeInCapacity"
   scaling_adjustment     = -1
-  cooldown               = 300
+  cooldown               = 300 # Cooldown for 5 minutes
 }
 
+# --- CloudWatch Alarm to Scale Down (Faster for Demo) ---
 resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   alarm_name          = "${var.stage}-cpu-low-alarm"
-  comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = 2
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2 # Trigger after 2 periods
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = 600
+  period              = 60 # Check every 60 seconds
   statistic           = "Average"
   threshold           = 30
 
@@ -114,20 +107,25 @@ resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   alarm_actions = [aws_autoscaling_policy.scale_down.arn]
 }
 
-
-
-
-
-#######################################
+# --------------------------
+# SNS Notification Setup
+# --------------------------
 # --- SNS Topic for ASG Notifications ---
-# This topic will receive a message every time a scaling event occurs.
 resource "aws_sns_topic" "asg_notifications" {
   name = "${var.stage}-asg-notifications"
 }
 
+# --- SNS Topic Policy ---
+# This attaches our external policy file to the SNS topic, allowing the
+# Auto Scaling service to publish messages to it.
+resource "aws_sns_topic_policy" "asg_notifications_policy" {
+  arn    = aws_sns_topic.asg_notifications.arn
+  policy = templatefile("${path.module}/../policy/sns_asg_notification_policy.json", {
+    sns_topic_arn = aws_sns_topic.asg_notifications.arn
+  })
+}
+
 # --- ASG Notification Configuration ---
-# This tells the ASG to send notifications to our SNS topic
-# for all major lifecycle events.
 resource "aws_autoscaling_notification" "main_asg_notifications" {
   group_names = [aws_autoscaling_group.main_asg.name]
   
@@ -140,3 +138,4 @@ resource "aws_autoscaling_notification" "main_asg_notifications" {
 
   topic_arn = aws_sns_topic.asg_notifications.arn
 }
+
