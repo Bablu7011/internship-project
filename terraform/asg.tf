@@ -48,7 +48,7 @@ resource "aws_lb_target_group" "main_tg" {
     path                = "/health"
     protocol            = "HTTP"
     matcher             = "200"
-    interval            = 15
+    interval            = 15 # Check every 15 seconds
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 2
@@ -65,6 +65,7 @@ resource "aws_autoscaling_group" "main_asg" {
   max_size                  = 4
   vpc_zone_identifier       = [aws_subnet.devops_subnet.id, aws_subnet.devops_subnet_2.id]
   health_check_type         = "ELB"
+  # THIS IS A KEY FIX: Ignores ELB health checks for 300 seconds after launch.
   health_check_grace_period = 300
 
   launch_template {
