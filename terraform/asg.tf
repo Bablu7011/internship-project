@@ -13,8 +13,7 @@ resource "aws_launch_template" "main_lt" {
     name = aws_iam_instance_profile.ec2_profile.name
   }
 
-  # THIS IS THE FIX: Enable unlimited mode for T-series instances.
-  # This allows the CPU to sustain high performance for our test.
+  # Solves the t3.micro CPU credit throttling issue for our test
   credit_specification {
     cpu_credits = "unlimited"
   }
@@ -35,14 +34,38 @@ resource "aws_launch_template" "main_lt" {
 }
 
 # --------------------------
+# Target Group for the Load Balancer
+# --------------------------
+# We define this here to keep all ASG-related config together.
+resource "aws_lb_target_group" "main_tg" {
+  name     = "${var.stage}-main-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.devops_vpc.id
+
+  health_check {
+    # This points the health check to the dedicated /health endpoint.
+    path                = "/health"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
+# --------------------------
 # Auto Scaling Group (ASG)
 # --------------------------
 resource "aws_autoscaling_group" "main_asg" {
-  name                = "${var.stage}-main-asg"
-  desired_capacity    = 2
-  min_size            = 2
-  max_size            = 4
-  vpc_zone_identifier = [aws_subnet.devops_subnet.id, aws_subnet.devops_subnet_2.id]
+  name                      = "${var.stage}-main-asg"
+  desired_capacity          = 2
+  min_size                  = 2
+  max_size                  = 4
+  vpc_zone_identifier       = [aws_subnet.devops_subnet.id, aws_subnet.devops_subnet_2.id]
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
 
   launch_template {
     id      = aws_launch_template.main_lt.id
@@ -50,54 +73,56 @@ resource "aws_autoscaling_group" "main_asg" {
   }
 
   target_group_arns = [aws_lb_target_group.main_tg.arn]
-  health_check_type = "ELB"
+
+  tag {
+    key                 = "Name"
+    value               = "${var.stage}-asg-instance"
+    propagate_at_launch = true
+  }
 }
 
 # --------------------------
 # Scaling Policies & Alarms (Fast for Demo)
 # --------------------------
-# --- Scale-Up Policy ---
 resource "aws_autoscaling_policy" "scale_up" {
   name                   = "${var.stage}-scale-up-policy"
   autoscaling_group_name = aws_autoscaling_group.main_asg.name
   adjustment_type        = "ChangeInCapacity"
   scaling_adjustment     = 1
-  cooldown               = 60
+  cooldown               = 60 # Wait 1 minute before another scale-up
 }
 
 resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
   alarm_name          = "${var.stage}-cpu-high-alarm"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
+  evaluation_periods  = "1" # Trigger after 1 minute of high CPU
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = "60"
   statistic           = "Average"
-  threshold           = "30"
+  threshold           = "30" # Low threshold for easy testing
   alarm_actions       = [aws_autoscaling_policy.scale_up.arn]
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.main_asg.name
   }
 }
 
-# --- Scale-Down Policy ---
 resource "aws_autoscaling_policy" "scale_down" {
   name                   = "${var.stage}-scale-down-policy"
   autoscaling_group_name = aws_autoscaling_group.main_asg.name
   adjustment_type        = "ChangeInCapacity"
   scaling_adjustment     = -1
-  cooldown               = 120
+  cooldown               = 120 # Wait 2 minutes before another scale-down
 }
 
 resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
   alarm_name          = "${var.stage}-cpu-low-alarm"
   comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "2"
+  evaluation_periods  = "2" # Trigger after 2 minutes of low CPU
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = "60"
   statistic           = "Average"
-  # THIS IS THE CHANGE: The threshold is now 20%
   threshold           = "20"
   alarm_actions       = [aws_autoscaling_policy.scale_down.arn]
   dimensions = {

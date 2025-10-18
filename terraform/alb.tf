@@ -8,32 +8,13 @@ resource "aws_lb" "main_alb" {
 
   # Enable access logging and point it to our ELB logs bucket
   access_logs {
-    bucket  = aws_s3_bucket.elb_logs_bucket.bucket
+    bucket  = var.elb_logs_bucket_name
     prefix  = "elb-logs"
     enabled = true
   }
 
   tags = {
     Name = "${var.stage}-main-alb"
-  }
-}
-
-# Create the Target Group for our EC2 instances
-resource "aws_lb_target_group" "main_tg" {
-  name     = "${var.stage}-main-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.devops_vpc.id
-
-  health_check {
-    path                = "/"
-    protocol            = "HTTP"
-    matcher             = "200"
-    # UPDATED: Give the instance more time to start
-    interval            = 60
-    timeout             = 30
-    healthy_threshold   = 2
-    unhealthy_threshold = 5 # Allow 5 failures before marking as unhealthy
   }
 }
 
@@ -45,6 +26,8 @@ resource "aws_lb_listener" "http_listener" {
 
   default_action {
     type             = "forward"
+    # This now correctly references the Target Group defined in asg.tf
     target_group_arn = aws_lb_target_group.main_tg.arn
   }
 }
+
