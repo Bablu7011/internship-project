@@ -18,7 +18,7 @@ public class HelloController {
     @GetMapping("/health")
     public ResponseEntity<String> healthCheck() {
         // This endpoint does nothing but return a 200 OK status instantly.
-        return ResponseEntity.ok("OK");
+        return ResponseEntity.ok("OK.");
     }
 }
 
